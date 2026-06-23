@@ -1,16 +1,24 @@
 # Go L-BFGS-B
 
-A Go package for L-BFGS-B optimization with **zero dependencies**.
+A Go package for L-BFGS-B optimization. Fortran code is precompiled — **no gfortran needed**.
 
-This is a fork of [Terminally-Online/go-lbfgsb](https://github.com/Terminally-Online/go-lbfgsb), which itself was forked from [idavydov/go-lbfgsb](https://github.com/idavydov/go-lbfgsb) → [afbarnard/go-lbfgsb](https://github.com/afbarnard/go-lbfgsb). Comes with precompiled Fortran binaries — no GCC, no gfortran, no CGO_LDFLAGS setup required.
+This is a fork of [Terminally-Online/go-lbfgsb](https://github.com/Terminally-Online/go-lbfgsb), which itself was forked from [idavydov/go-lbfgsb](https://github.com/idavydov/go-lbfgsb) → [afbarnard/go-lbfgsb](https://github.com/afbarnard/go-lbfgsb).
+
+## Platform Support
+
+| Platform | Approach | Prerequisites |
+|----------|----------|---------------|
+| macOS (arm64/amd64) | cgo + precompiled `.syso` | clang (built-in) |
+| Linux (amd64/arm64) | cgo + precompiled `.syso` | gcc (usually built-in) |
+| **Windows (amd64)** | pure Go + precompiled `.dll` | **none — zero dependency** |
+
+On Windows the package uses `syscall.LoadDLL` instead of cgo, so no C compiler is needed at all. Just Go.
 
 ## Installation
 
 ```bash
 go get github.com/Terminally-Online/go-lbfgsb
 ```
-
-That's it. Works on macOS (arm64/amd64), Linux (amd64/arm64), and Windows (amd64).
 
 ## Usage
 
@@ -56,30 +64,47 @@ L-BFGS-B is a limited-memory quasi-Newton optimization algorithm for bound-const
 ## Testing
 
 ```bash
-# macOS / Linux — just Go
+# macOS / Linux
 go test -v .
 
-# Windows — needs MinGW-w64 gcc for cgo
-# 1. Install MinGW-w64: https://www.mingw-w64.org/
-# 2. Make sure gcc is in PATH
-gcc --version
-# 3. Run tests
+# Windows — no setup needed
 go test -v .
 ```
 
-The test minimizes the Rosenbrock function using the L-BFGS-B solver. If it passes, the precompiled `.syso` links correctly on your platform.
+The test minimizes the Rosenbrock function. If it passes, the precompiled binaries link correctly on your platform.
 
 ## Building from Source
 
 If you need to rebuild the precompiled binaries (maintainers only):
 
+### macOS / Linux native (.syso)
+
 ```bash
-# Requires gfortran
-brew install gcc  # macOS
-# or
-sudo apt-get install gfortran  # Linux
+# Prerequisites
+brew install gcc           # macOS
+sudo apt install gfortran  # Linux
 
 make
+```
+
+### Windows DLL
+
+```bash
+# Prerequisites
+brew install mingw-w64              # macOS
+sudo apt install gfortran-mingw-w64-x86-64  # Linux
+
+make build-windows-dll
+# → produces lbfgsb.dll
+```
+
+### Windows (.syso, deprecated)
+
+The old cgo-based approach for Windows is still available but requires MinGW-w64 at build time and on the target machine:
+
+```bash
+make build-windows-amd64
+# → produces lbfgsb_windows_amd64.syso
 ```
 
 ## License

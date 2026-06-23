@@ -1,4 +1,4 @@
-.PHONY: all clean build-darwin-arm64 build-darwin-amd64 build-linux-amd64 build-linux-arm64 build-windows-amd64
+.PHONY: all clean build-darwin-arm64 build-darwin-amd64 build-linux-amd64 build-linux-arm64 build-windows-amd64 build-windows-dll
 
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
@@ -85,14 +85,57 @@ build-windows-amd64:
 	cd src && x86_64-w64-mingw32-gfortran -c -O2 -fPIC lbfgsb.f blas.f linpack.f timer.f
 	cd src && x86_64-w64-mingw32-gfortran -c -O2 -fPIC lbfgsb__entry.f90
 	cd src && x86_64-w64-mingw32-gfortran -c -O2 -fPIC lbfgsb_c.f90
+ifeq ($(UNAME_S),Darwin)
 	x86_64-w64-mingw32-ld -r -o lbfgsb_windows_amd64.syso \
 		src/lbfgsb.o src/blas.o src/linpack.o src/timer.o \
 		src/lbfgsb__entry.o src/lbfgsb_c.o \
 		$$(brew --prefix mingw-w64)/toolchain-x86_64/x86_64-w64-mingw32/lib/libgfortran.a \
 		$$(brew --prefix mingw-w64)/toolchain-x86_64/x86_64-w64-mingw32/lib/libquadmath.a \
 		$$(brew --prefix mingw-w64)/toolchain-x86_64/lib/gcc/x86_64-w64-mingw32/*/libgcc.a
+else
+	x86_64-w64-mingw32-ld -r -o lbfgsb_windows_amd64.syso \
+		src/lbfgsb.o src/blas.o src/linpack.o src/timer.o \
+		src/lbfgsb__entry.o src/lbfgsb_c.o \
+		$$(find /usr/lib/gcc/x86_64-w64-mingw32 -name 'libgfortran.a' | head -1) \
+		$$(find /usr/lib/gcc/x86_64-w64-mingw32 -name 'libquadmath.a' | head -1) \
+		$$(find /usr/lib/gcc/x86_64-w64-mingw32 -name 'libgcc.a' | head -1)
+endif
 	rm -f src/*.o src/*.mod
 	@echo "Built lbfgsb_windows_amd64.syso"
 
+# Build Windows DLL (for zero-dependency windows/amd64).
+# Contains Fortran + C glue + static libgfortran/libquadmath/libgcc.
+# Required by lbfgsb_windows.go (pure Go, no cgo).
+# Prerequisites:
+#   macOS:  brew install mingw-w64
+#   Linux:  apt install gfortran-mingw-w64-x86-64
+build-windows-dll:
+	@echo "Building lbfgsb.dll for windows/amd64..."
+	cd src && x86_64-w64-mingw32-gfortran -c -O2 -fPIC lbfgsb.f blas.f linpack.f timer.f
+	cd src && x86_64-w64-mingw32-gfortran -c -O2 -fPIC lbfgsb__entry.f90
+	cd src && x86_64-w64-mingw32-gfortran -c -O2 -fPIC lbfgsb_c.f90
+	x86_64-w64-mingw32-gcc -c -O2 -fPIC -I. -o dll/lbfgsb_windows_interface.o dll/lbfgsb_windows_interface.c
+ifeq ($(UNAME_S),Darwin)
+	x86_64-w64-mingw32-gcc -shared -o lbfgsb.dll \
+		src/lbfgsb.o src/blas.o src/linpack.o src/timer.o \
+		src/lbfgsb__entry.o src/lbfgsb_c.o \
+		dll/lbfgsb_windows_interface.o \
+		$$(brew --prefix mingw-w64)/toolchain-x86_64/x86_64-w64-mingw32/lib/libgfortran.a \
+		$$(brew --prefix mingw-w64)/toolchain-x86_64/x86_64-w64-mingw32/lib/libquadmath.a \
+		$$(brew --prefix mingw-w64)/toolchain-x86_64/lib/gcc/x86_64-w64-mingw32/*/libgcc.a \
+		-Wl,--export-all-symbols
+else
+	x86_64-w64-mingw32-gcc -shared -o lbfgsb.dll \
+		src/lbfgsb.o src/blas.o src/linpack.o src/timer.o \
+		src/lbfgsb__entry.o src/lbfgsb_c.o \
+		dll/lbfgsb_windows_interface.o \
+		$$(find /usr/lib/gcc/x86_64-w64-mingw32 -name 'libgfortran.a' | head -1) \
+		$$(find /usr/lib/gcc/x86_64-w64-mingw32 -name 'libquadmath.a' | head -1) \
+		$$(find /usr/lib/gcc/x86_64-w64-mingw32 -name 'libgcc.a' | head -1) \
+		-Wl,--export-all-symbols
+endif
+	rm -f src/*.o src/*.mod dll/*.o
+	@echo "Built lbfgsb.dll"
+
 clean:
-	rm -f src/*.o src/*.mod *.syso
+	rm -f src/*.o src/*.mod dll/*.o *.syso *.dll
