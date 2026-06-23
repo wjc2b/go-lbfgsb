@@ -116,22 +116,28 @@ build-windows-dll:
 	cd src && x86_64-w64-mingw32-gfortran -c -O2 -fPIC lbfgsb_c.f90
 	x86_64-w64-mingw32-gcc -c -O2 -fPIC -I. -o dll/lbfgsb_windows_interface.o dll/lbfgsb_windows_interface.c
 ifeq ($(UNAME_S),Darwin)
-	x86_64-w64-mingw32-gcc -shared -o lbfgsb.dll \
+	x86_64-w64-mingw32-gcc -static-libgcc -shared -o lbfgsb.dll \
 		src/lbfgsb.o src/blas.o src/linpack.o src/timer.o \
 		src/lbfgsb__entry.o src/lbfgsb_c.o \
 		dll/lbfgsb_windows_interface.o \
+		-Wl,-Bstatic \
 		$$(brew --prefix mingw-w64)/toolchain-x86_64/x86_64-w64-mingw32/lib/libgfortran.a \
 		$$(brew --prefix mingw-w64)/toolchain-x86_64/x86_64-w64-mingw32/lib/libquadmath.a \
+		$$(brew --prefix mingw-w64)/toolchain-x86_64/x86_64-w64-mingw32/lib/libwinpthread.a \
 		$$(brew --prefix mingw-w64)/toolchain-x86_64/lib/gcc/x86_64-w64-mingw32/*/libgcc.a \
+		-Wl,-Bdynamic \
 		-Wl,--export-all-symbols
 else
-	x86_64-w64-mingw32-gcc -shared -o lbfgsb.dll \
+	x86_64-w64-mingw32-gcc -static-libgcc -shared -o lbfgsb.dll \
 		src/lbfgsb.o src/blas.o src/linpack.o src/timer.o \
 		src/lbfgsb__entry.o src/lbfgsb_c.o \
 		dll/lbfgsb_windows_interface.o \
+		-Wl,-Bstatic \
 		$$(find /usr/lib/gcc/x86_64-w64-mingw32 -name 'libgfortran.a' | head -1) \
 		$$(find /usr/lib/gcc/x86_64-w64-mingw32 -name 'libquadmath.a' | head -1) \
+		$$(find /usr/lib/gcc/x86_64-w64-mingw32 -name 'libwinpthread.a' | head -1) \
 		$$(find /usr/lib/gcc/x86_64-w64-mingw32 -name 'libgcc.a' | head -1) \
+		-Wl,-Bdynamic \
 		-Wl,--export-all-symbols
 endif
 	rm -f src/*.o src/*.mod dll/*.o
