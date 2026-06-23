@@ -3,25 +3,41 @@
 package lbfgsb
 
 import (
+	_ "embed"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"syscall"
 	"unsafe"
 )
 
-// DLL handle — loaded once at init.
+// DLL embedded at compile time — extracted to a temp file on first load.
+//
+//go:embed lbfgsb.dll
+var dllData []byte
+
 var (
+	dllPath      string
 	dllLbfgsb    *syscall.DLL
 	procMinimize *syscall.Proc
 )
 
 func init() {
-	dllLbfgsb = syscall.MustLoadDLL("lbfgsb.dll")
+	// Extract the embedded DLL to a temp file so LoadLibrary can find it.
+	// Use a stable name under TEMP — only write once per binary version.
+	tmpDir := os.TempDir()
+	dllPath = filepath.Join(tmpDir, "go_lbfgsb.dll")
+	if _, err := os.Stat(dllPath); os.IsNotExist(err) {
+		if err := os.WriteFile(dllPath, dllData, 0644); err != nil {
+			panic(fmt.Sprintf("lbfgsb: failed to write embedded DLL to %s: %v", dllPath, err))
+		}
+	}
+	dllLbfgsb = syscall.MustLoadDLL(dllPath)
 	procMinimize = dllLbfgsb.MustFindProc("lbfgsb_minimize_windows")
 }
 
 // lbfgsbCall matches the C struct lbfgsb_call layout exactly.
-// Offsets verified by the init check below.
 type lbfgsbCall struct {
 	objFn             uintptr // function pointer
 	gradFn            uintptr
@@ -51,7 +67,7 @@ type lbfgsbCall struct {
 }
 
 // Minimize optimizes the given objective using the L-BFGS-B algorithm.
-// On Windows this calls into the precompiled lbfgsb.dll via syscall.
+// On Windows this calls into the embedded lbfgsb.dll via syscall.
 func (lbfgsb *Lbfgsb) Minimize(
 	objective FunctionWithGradient,
 	initialPoint []float64) (
@@ -72,10 +88,9 @@ func (lbfgsb *Lbfgsb) Minimize(
 	cId := registerCallback(objective)
 	defer unregisterCallback(cId)
 	objCB := syscall.NewCallback(objCallback)
-
 	gradCB := syscall.NewCallback(gradCallback)
 
-	// Bounds control: int32 slice, must be in C memory layout.
+	// Bounds control: int32 slice.
 	boundsControl := make([]int32, dim)
 	if lbfgsb.lowerBounds != nil {
 		for i, b := range lbfgsb.lowerBounds {
@@ -164,8 +179,6 @@ func (lbfgsb *Lbfgsb) Minimize(
 // Signature matches lbfgsb_objective_function_type:
 //
 //	int (*)(int dim, double *point, double *value, void *data, char *msg, int len)
-//
-// All args are uintptr — syscall.NewCallback passes them through integer registers.
 func objCallback(dim uintptr, pointPtr uintptr, valuePtr uintptr, cbData uintptr, msgPtr uintptr, msgLen uintptr) uintptr {
 	n := int(dim)
 	point := unsafe.Slice((*float64)(unsafe.Pointer(pointPtr)), n)
