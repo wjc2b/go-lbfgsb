@@ -1,4 +1,4 @@
-.PHONY: all clean build-darwin-arm64 build-darwin-amd64 build-linux-amd64 build-linux-arm64
+.PHONY: all clean build-darwin-arm64 build-darwin-amd64 build-linux-amd64 build-linux-arm64 build-windows-amd64
 
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
@@ -75,6 +75,24 @@ build-linux-arm64:
 		$$(find /usr/lib/gcc -name 'libgcc.a' | head -1)
 	rm -f src/*.o src/*.mod
 	@echo "Built lbfgsb_linux_arm64.syso"
+
+# Cross-compile for Windows x64 using MinGW-w64.
+# Prerequisites:
+#   macOS:  brew install mingw-w64
+#   Linux:  apt install gfortran-mingw-w64-x86-64
+build-windows-amd64:
+	@echo "Building for windows/amd64..."
+	cd src && x86_64-w64-mingw32-gfortran -c -O2 -fPIC lbfgsb.f blas.f linpack.f timer.f
+	cd src && x86_64-w64-mingw32-gfortran -c -O2 -fPIC lbfgsb__entry.f90
+	cd src && x86_64-w64-mingw32-gfortran -c -O2 -fPIC lbfgsb_c.f90
+	x86_64-w64-mingw32-ld -r -o lbfgsb_windows_amd64.syso \
+		src/lbfgsb.o src/blas.o src/linpack.o src/timer.o \
+		src/lbfgsb__entry.o src/lbfgsb_c.o \
+		$$(brew --prefix mingw-w64)/toolchain-x86_64/x86_64-w64-mingw32/lib/libgfortran.a \
+		$$(brew --prefix mingw-w64)/toolchain-x86_64/x86_64-w64-mingw32/lib/libquadmath.a \
+		$$(brew --prefix mingw-w64)/toolchain-x86_64/lib/gcc/x86_64-w64-mingw32/*/libgcc.a
+	rm -f src/*.o src/*.mod
+	@echo "Built lbfgsb_windows_amd64.syso"
 
 clean:
 	rm -f src/*.o src/*.mod *.syso

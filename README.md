@@ -2,7 +2,7 @@
 
 A Go package for L-BFGS-B optimization with **zero dependencies**.
 
-This is a fork of [idavydov/go-lbfgsb](https://github.com/idavydov/go-lbfgsb) (itself a fork of [afbarnard/go-lbfgsb](https://github.com/afbarnard/go-lbfgsb)) with precompiled Fortran binaries. No GCC, no gfortran, no CGO_LDFLAGS setup required.
+This is a fork of [Terminally-Online/go-lbfgsb](https://github.com/Terminally-Online/go-lbfgsb), which itself was forked from [idavydov/go-lbfgsb](https://github.com/idavydov/go-lbfgsb) → [afbarnard/go-lbfgsb](https://github.com/afbarnard/go-lbfgsb). Comes with precompiled Fortran binaries — no GCC, no gfortran, no CGO_LDFLAGS setup required.
 
 ## Installation
 
@@ -10,7 +10,7 @@ This is a fork of [idavydov/go-lbfgsb](https://github.com/idavydov/go-lbfgsb) (i
 go get github.com/Terminally-Online/go-lbfgsb
 ```
 
-That's it. Works on macOS (arm64/amd64) and Linux (amd64).
+That's it. Works on macOS (arm64/amd64), Linux (amd64/arm64), and Windows (amd64).
 
 ## Usage
 
@@ -52,6 +52,22 @@ func main() {
 ## What is L-BFGS-B?
 
 L-BFGS-B is a limited-memory quasi-Newton optimization algorithm for bound-constrained problems. It's efficient for large-scale optimization where you can compute gradients but the Hessian is too expensive to store.
+
+## Testing
+
+```bash
+# macOS / Linux — just Go
+go test -v .
+
+# Windows — needs MinGW-w64 gcc for cgo
+# 1. Install MinGW-w64: https://www.mingw-w64.org/
+# 2. Make sure gcc is in PATH
+gcc --version
+# 3. Run tests
+go test -v .
+```
+
+The test minimizes the Rosenbrock function using the L-BFGS-B solver. If it passes, the precompiled `.syso` links correctly on your platform.
 
 ## Building from Source
 
