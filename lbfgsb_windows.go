@@ -3,37 +3,19 @@
 package lbfgsb
 
 import (
-	_ "embed"
 	"fmt"
 	"math"
-	"os"
-	"path/filepath"
 	"syscall"
 	"unsafe"
 )
 
-// DLL embedded at compile time — extracted to a temp file on first load.
-//
-//go:embed lbfgsb.dll
-var dllData []byte
-
 var (
-	dllPath      string
 	dllLbfgsb    *syscall.DLL
 	procMinimize *syscall.Proc
 )
 
 func init() {
-	// Extract the embedded DLL to a temp file so LoadLibrary can find it.
-	// Use a stable name under TEMP — only write once per binary version.
-	tmpDir := os.TempDir()
-	dllPath = filepath.Join(tmpDir, "go_lbfgsb.dll")
-	if _, err := os.Stat(dllPath); os.IsNotExist(err) {
-		if err := os.WriteFile(dllPath, dllData, 0644); err != nil {
-			panic(fmt.Sprintf("lbfgsb: failed to write embedded DLL to %s: %v", dllPath, err))
-		}
-	}
-	dllLbfgsb = syscall.MustLoadDLL(dllPath)
+	dllLbfgsb = syscall.MustLoadDLL("lbfgsb.dll")
 	procMinimize = dllLbfgsb.MustFindProc("lbfgsb_minimize_windows")
 }
 
