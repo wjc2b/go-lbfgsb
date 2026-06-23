@@ -8,3 +8,4 @@ lbfgsb*.mod
 
 # Static library (not the .syso)
 liblbfgsb.a
+test_rosenbrock.exe
